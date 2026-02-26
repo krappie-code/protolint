@@ -70,12 +70,14 @@ function validateSyntax(lines: string[]): Issue[] {
       const isFieldDecl = /^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+/.test(code);
 
       if (isFieldDecl && !isNestedDef && !isClosingBrace) {
-        // Should have = number;
-        if (!/=\s*\d+\s*[;\[]/.test(code) && !/=\s*\d+\s*$/.test(code)) {
-          // Check if it looks like a field missing its number
-          if (/^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+\s*[;=]?\s*$/.test(code) ||
-              /^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+\s*=\s*$/.test(code) ||
-              /^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+\s*=\s*;/.test(code)) {
+        // Must have = number; (with semicolon)
+        if (!/=\s*\d+\s*;/.test(code) && !/=\s*\d+\s*\[/.test(code)) {
+          if (/=\s*\d+\s*$/.test(code)) {
+            // Has field number but missing semicolon
+            issues.push(
+              issue(lineNum, 1, "syntax-error", `Field declaration is missing a trailing semicolon.`, "error")
+            );
+          } else {
             issues.push(
               issue(lineNum, 1, "syntax-error", `Field declaration is missing a valid field number.`, "error")
             );
@@ -90,10 +92,16 @@ function validateSyntax(lines: string[]): Issue[] {
       const isOption = code.startsWith("option ");
       const isReserved = code.startsWith("reserved ");
       if (!isClosingBrace && !isOption && !isReserved && /^\w+/.test(code)) {
-        if (!/^\w+\s*=\s*-?\d+\s*[;\[]/.test(code) && !/^\w+\s*=\s*-?\d+\s*$/.test(code)) {
-          issues.push(
-            issue(lineNum, 1, "syntax-error", `Enum value is missing a valid number assignment.`, "error")
-          );
+        if (!/^\w+\s*=\s*-?\d+\s*;/.test(code) && !/^\w+\s*=\s*-?\d+\s*\[/.test(code)) {
+          if (/^\w+\s*=\s*-?\d+\s*$/.test(code)) {
+            issues.push(
+              issue(lineNum, 1, "syntax-error", `Enum value is missing a trailing semicolon.`, "error")
+            );
+                    } else {
+            issues.push(
+              issue(lineNum, 1, "syntax-error", `Enum value is missing a valid number assignment.`, "error")
+            );
+          }
         }
       }
     }
