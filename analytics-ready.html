@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Google Analytics 4 - Ready for protolint.com -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R81K03VNLG"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-R81K03VNLG');
+    </script>
+
+    <!-- Protolint Analytics Class -->
+    <script>
+        class ProtolintAnalytics {
+            constructor() {
+                this.measurementId = 'G-R81K03VNLG';
+                // gtag is already loaded above
+            }
+
+            trackFileInput(method, fileSize = null) {
+                gtag('event', 'file_input', {
+                    'event_category': 'engagement',
+                    'input_method': method, // 'upload', 'paste', 'example'
+                    'file_size_kb': fileSize ? Math.round(fileSize / 1024) : null,
+                    'value': 1
+                });
+            }
+
+            trackValidation(fileSize, inputMethod) {
+                gtag('event', 'validation_attempt', {
+                    'event_category': 'validation',
+                    'file_size_kb': Math.round(fileSize / 1024),
+                    'input_method': inputMethod,
+                    'value': 1
+                });
+            }
+
+            trackValidationResults(results) {
+                gtag('event', 'validation_complete', {
+                    'event_category': 'results',
+                    'total_errors': results.totalErrors || 0,
+                    'syntax_errors': results.syntaxErrors?.length || 0,
+                    'style_violations': results.styleErrors?.length || 0,
+                    'import_errors': results.importErrors?.length || 0,
+                    'performance_hints': results.performanceHints?.length || 0,
+                    'validation_success': results.totalErrors === 0 ? 'true' : 'false',
+                    'value': 1
+                });
+            }
+
+            trackFeature(featureName, action = 'used') {
+                gtag('event', 'feature_usage', {
+                    'event_category': 'features',
+                    'feature_name': featureName,
+                    'action': action,
+                    'value': 1
+                });
+            }
+        }
+
+        // Initialize analytics when page loads
+        window.addEventListener('DOMContentLoaded', function() {
+            window.protolintAnalytics = new ProtolintAnalytics();
+            
+            // Track initial page view milestone
+            gtag('event', 'user_milestone', {
+                'event_category': 'journey',
+                'milestone': 'page_view',
+                'value': 1
+            });
+        });
+    </script>
+</head>
+<body>
+    <!-- Your protolint.com content here -->
+    
+    <!-- Example usage in your validation code -->
+    <script>
+        function handleFileUpload(file) {
+            // Track file input
+            protolintAnalytics.trackFileInput('upload', file.size);
+            
+            // Your file processing logic here...
+        }
+
+        function handleValidation(fileContent, inputMethod) {
+            // Track validation attempt
+            protolintAnalytics.trackValidation(fileContent.length, inputMethod);
+            
+            // Perform your validation logic...
+            // Then track results:
+            // protolintAnalytics.trackValidationResults(validationResults);
+        }
+    </script>
+</body>
+</html>

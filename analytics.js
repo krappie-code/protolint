@@ -1,5 +1,5 @@
 // Analytics for protolint.com
-// Replace G-XXXXXXXXXX with your actual GA4 Measurement ID
+// GA4 Measurement ID: G-R81K03VNLG
 
 class ProtolintAnalytics {
   constructor(measurementId) {
@@ -121,7 +121,7 @@ class ProtolintAnalytics {
 }
 
 // Usage example:
-// const analytics = new ProtolintAnalytics('G-XXXXXXXXXX');
+// const analytics = new ProtolintAnalytics('G-R81K03VNLG');
 // 
 // // When user uploads file
 // analytics.trackFileInput('upload', file.size);
