@@ -42,6 +42,7 @@ export default function Home() {
   const [content, setContent] = useState(EXAMPLE_PROTO);
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null);
@@ -256,26 +257,48 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            <MonacoEditor
-              height="500px"
-              language="protobuf"
-              theme="vs-dark"
-              value={content}
-              onChange={(v) => setContent(v || "")}
-              onMount={(ed) => {
-                editorRef.current = ed;
-                ed.updateOptions({ glyphMargin: true });
-              }}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                lineNumbers: "on",
-                scrollBeyondLastLine: false,
-                padding: { top: 12 },
-                wordWrap: "on",
-                glyphMargin: true,
-              }}
-            />
+            <div className="relative">
+              <MonacoEditor
+                height="500px"
+                language="protobuf"
+                theme="vs-dark"
+                value={content}
+                onChange={(v) => setContent(v || "")}
+                onMount={(ed) => {
+                  editorRef.current = ed;
+                  ed.updateOptions({ glyphMargin: true });
+                }}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  lineNumbers: "on",
+                  scrollBeyondLastLine: false,
+                  padding: { top: 12 },
+                  wordWrap: "on",
+                  glyphMargin: true,
+                }}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(content);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="absolute top-3 right-3 p-1.5 rounded-md bg-[#1e1e2e]/80 hover:bg-[#2a2a3e] text-[#7a7a8c] hover:text-white transition-all backdrop-blur-sm z-10"
+                title="Copy to clipboard"
+              >
+                {copied ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
+              </button>
+            </div>
             <p className="text-xs text-[#7a7a8c] px-4 py-2 border-t border-[#1e1e2e]">
               Drag & drop a .proto file or paste content above
             </p>
