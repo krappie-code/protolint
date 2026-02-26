@@ -108,6 +108,55 @@ export default function Home() {
     }
   }, [content, updateDecorations]);
 
+  const handleFormat = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/format", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      const data = await res.json();
+      if (data.formatted) {
+        setContent(data.formatted);
+      }
+    } catch {
+      // ignore format errors
+    } finally {
+      setLoading(false);
+    }
+  }, [content]);
+
+  const handleFormatAndValidate = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Format first
+      const fmtRes = await fetch("/api/format", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      const fmtData = await fmtRes.json();
+      const formatted = fmtData.formatted || content;
+      setContent(formatted);
+
+      // Then validate the formatted content
+      const valRes = await fetch("/api/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: formatted }),
+      });
+      const valData = await valRes.json();
+      setResult(valData);
+      updateDecorations(valData);
+    } catch {
+      setResult(null);
+      updateDecorations(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [content, updateDecorations]);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
@@ -192,11 +241,18 @@ export default function Home() {
                   Upload
                 </button>
                 <button
-                  onClick={handleValidate}
+                  onClick={handleFormat}
+                  disabled={loading}
+                  className="text-xs px-3 py-1 rounded-md border border-indigo-600 text-indigo-400 hover:bg-indigo-600/20 font-medium transition-colors disabled:opacity-50"
+                >
+                  Format
+                </button>
+                <button
+                  onClick={handleFormatAndValidate}
                   disabled={loading}
                   className="text-xs px-4 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50"
                 >
-                  {loading ? "Validating…" : "Validate"}
+                  {loading ? "Processing…" : "Validate"}
                 </button>
               </div>
             </div>
