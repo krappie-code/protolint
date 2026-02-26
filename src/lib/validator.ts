@@ -52,7 +52,7 @@ function validateSyntax(lines: string[]): Issue[] {
   // Track declarations with line numbers for duplicate detection
   const declaredTypeLines = new Map<string, number>();
   // Track field numbers per block for duplicate detection
-  const fieldNumberStacks: Map<string, number>[] = [];
+  const fieldNumberStacks: Map<number, number>[] = [];
   // Track field names per block for duplicate detection
   const fieldNameStacks: Map<string, number>[] = [];
 
