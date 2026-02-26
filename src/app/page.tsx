@@ -280,9 +280,25 @@ export default function Home() {
               />
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(content);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
+                  const textToCopy = editorRef.current?.getValue() || content;
+                  if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    });
+                  } else {
+                    // Fallback for non-HTTPS
+                    const textarea = document.createElement("textarea");
+                    textarea.value = textToCopy;
+                    textarea.style.position = "fixed";
+                    textarea.style.opacity = "0";
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(textarea);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }
                 }}
                 className="absolute top-3 right-3 p-1.5 rounded-md bg-[#1e1e2e]/80 hover:bg-[#2a2a3e] text-[#7a7a8c] hover:text-white transition-all backdrop-blur-sm z-10"
                 title="Copy to clipboard"
