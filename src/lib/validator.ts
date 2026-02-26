@@ -29,6 +29,153 @@ const PASCAL_RE = /^[A-Z][A-Za-z0-9]*$/;
 const SNAKE_RE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
 const UPPER_SNAKE_RE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/;
 
+/**
+ * Parse proto syntax and catch structural errors like missing field numbers,
+ * unclosed braces, malformed declarations, etc.
+ */
+function validateSyntax(lines: string[]): Issue[] {
+  const issues: Issue[] = [];
+  let braceStack: { type: string; name: string; line: number }[] = [];
+  let expectingBody = false;
+  let expectingType = "";
+  let expectingName = "";
+  let expectingLine = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineNum = i + 1;
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+      continue;
+    }
+
+    // Remove inline comments
+    const code = trimmed.replace(/\/\/.*$/, "").trim();
+    if (!code) continue;
+
+    // Track braces
+    const openCount = (code.match(/{/g) || []).length;
+    const closeCount = (code.match(/}/g) || []).length;
+
+    // Check for field declarations inside messages (must have = fieldNumber;)
+    const currentContext = braceStack.length > 0 ? braceStack[braceStack.length - 1].type : "";
+
+    if (currentContext === "message" || currentContext === "oneof") {
+      // Field pattern: type name = number;
+      // Also valid: reserved, option, oneof, message, enum, map, extensions
+      const isNestedDef = /^(message|enum|oneof|reserved|option|extensions|map<)/.test(code);
+      const isClosingBrace = code === "}" || code === "};";
+      const isFieldDecl = /^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+/.test(code);
+
+      if (isFieldDecl && !isNestedDef && !isClosingBrace) {
+        // Should have = number;
+        if (!/=\s*\d+\s*[;\[]/.test(code) && !/=\s*\d+\s*$/.test(code)) {
+          // Check if it looks like a field missing its number
+          if (/^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+\s*[;=]?\s*$/.test(code) ||
+              /^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+\s*=\s*$/.test(code) ||
+              /^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+\s*=\s*;/.test(code)) {
+            issues.push(
+              issue(lineNum, 1, "syntax-error", `Field declaration is missing a valid field number.`, "error")
+            );
+          }
+        }
+      }
+    }
+
+    // Check enum values have = number;
+    if (currentContext === "enum") {
+      const isClosingBrace = code === "}" || code === "};";
+      const isOption = code.startsWith("option ");
+      const isReserved = code.startsWith("reserved ");
+      if (!isClosingBrace && !isOption && !isReserved && /^\w+/.test(code)) {
+        if (!/^\w+\s*=\s*-?\d+\s*[;\[]/.test(code) && !/^\w+\s*=\s*-?\d+\s*$/.test(code)) {
+          issues.push(
+            issue(lineNum, 1, "syntax-error", `Enum value is missing a valid number assignment.`, "error")
+          );
+        }
+      }
+    }
+
+    // Detect message/enum/service/oneof openings
+    const blockMatch = code.match(/^(message|enum|service|oneof)\s+(\w*)/);
+    if (blockMatch) {
+      const type = blockMatch[1];
+      const name = blockMatch[2] || "";
+
+      if (!name) {
+        issues.push(
+          issue(lineNum, 1, "syntax-error", `${type} declaration is missing a name.`, "error")
+        );
+      }
+
+      // Check for opening brace
+      if (code.includes("{")) {
+        braceStack.push({ type, name, line: lineNum });
+      } else {
+        // Brace might be on next line, or it's missing
+        expectingBody = true;
+        expectingType = type;
+        expectingName = name;
+        expectingLine = lineNum;
+      }
+    } else if (expectingBody) {
+      if (code.startsWith("{") || code === "{") {
+        braceStack.push({ type: expectingType, name: expectingName, line: expectingLine });
+      } else {
+        issues.push(
+          issue(expectingLine, 1, "syntax-error", `${expectingType} "${expectingName}" is missing opening brace "{"`, "error")
+        );
+      }
+      expectingBody = false;
+    }
+
+    // Handle brace tracking
+    for (let j = 0; j < openCount; j++) {
+      if (!blockMatch || j > 0) {
+        // Non-block opening braces (e.g., rpc options)
+        braceStack.push({ type: "block", name: "", line: lineNum });
+      }
+    }
+    for (let j = 0; j < closeCount; j++) {
+      if (braceStack.length > 0) {
+        braceStack.pop();
+      } else {
+        issues.push(
+          issue(lineNum, 1, "syntax-error", `Unexpected closing brace "}".`, "error")
+        );
+      }
+    }
+
+    // Check rpc syntax
+    if (currentContext === "service" && code.startsWith("rpc ")) {
+      // rpc Name(Request) returns (Response);
+      if (!/^rpc\s+\w+\s*\([^)]*\)\s+returns\s+\([^)]*\)\s*[;{]/.test(code)) {
+        issues.push(
+          issue(lineNum, 1, "syntax-error", `Malformed rpc declaration. Expected: rpc Name(Request) returns (Response);`, "error")
+        );
+      }
+    }
+
+    // Detect missing semicolons on field/import/package/syntax lines
+    if (/^(syntax|package|import|option)\s+/.test(code) && !code.endsWith(";") && !code.includes("{")) {
+      issues.push(
+        issue(lineNum, code.length, "syntax-error", `Statement is missing a trailing semicolon.`, "error")
+      );
+    }
+  }
+
+  // Check for unclosed braces
+  for (const unclosed of braceStack) {
+    issues.push(
+      issue(unclosed.line, 1, "syntax-error", `Unclosed ${unclosed.type} "${unclosed.name}" — missing closing brace "}".`, "error")
+    );
+  }
+
+  return issues;
+}
+
 export function validate(content: string): ValidationResult {
   const issues: Issue[] = [];
   const lines = content.split("\n");
@@ -215,6 +362,13 @@ export function validate(content: string): ValidationResult {
       );
     }
   }
+
+  // Run syntax validation
+  const syntaxIssues = validateSyntax(lines);
+  issues.push(...syntaxIssues);
+
+  // Sort all issues by line number
+  issues.sort((a, b) => a.line - b.line || a.column - b.column);
 
   const errors = issues.filter((i) => i.severity === "error");
   const warnings = issues.filter((i) => i.severity === "warning");
