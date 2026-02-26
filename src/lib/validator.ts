@@ -187,13 +187,24 @@ function validateSyntax(lines: string[]): Issue[] {
       }
     }
 
-    // Check rpc syntax
+    // Check rpc syntax and type references
     if (currentContext === "service" && code.startsWith("rpc ")) {
-      // rpc Name(Request) returns (Response);
-      if (!/^rpc\s+\w+\s*\([^)]*\)\s+returns\s+\([^)]*\)\s*[;{]/.test(code)) {
+      const rpcMatch = code.match(/^rpc\s+\w+\s*\(([^)]*)\)\s+returns\s+\(([^)]*)\)\s*[;{]/);
+      if (!rpcMatch) {
         issues.push(
           issue(lineNum, 1, "syntax-error", `Malformed rpc declaration. Expected: rpc Name(Request) returns (Response);`, "error")
         );
+      } else {
+        // Check that request and response types exist in this file
+        const reqType = rpcMatch[1].replace(/^stream\s+/, "").trim();
+        const resType = rpcMatch[2].replace(/^stream\s+/, "").trim();
+        for (const typeName of [reqType, resType]) {
+          if (typeName && !typeName.includes(".") && !declaredTypes.has(typeName)) {
+            issues.push(
+              issue(lineNum, 1, "unresolved-type", `RPC type "${typeName}" is not declared in this file. Ensure it's imported or defined elsewhere.`, "warning")
+            );
+          }
+        }
       }
     }
 
