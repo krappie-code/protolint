@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { EXAMPLE_PROTO } from "@/lib/examples";
 import type { ValidationResult, Issue } from "@/lib/validator";
+import type { editor } from "monaco-editor";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -42,6 +43,51 @@ export default function Home() {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null);
+
+  const updateDecorations = useCallback((validationResult: ValidationResult | null) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+
+    const allIssues = validationResult
+      ? [...validationResult.errors, ...validationResult.warnings, ...validationResult.info]
+      : [];
+
+    const newDecorations: editor.IModelDeltaDecoration[] = allIssues.map((iss) => ({
+      range: {
+        startLineNumber: iss.line,
+        startColumn: 1,
+        endLineNumber: iss.line,
+        endColumn: 1,
+      },
+      options: {
+        isWholeLine: true,
+        className:
+          iss.severity === "error"
+            ? "editor-line-error"
+            : iss.severity === "warning"
+            ? "editor-line-warning"
+            : "editor-line-info",
+        glyphMarginClassName:
+          iss.severity === "error"
+            ? "editor-glyph-error"
+            : iss.severity === "warning"
+            ? "editor-glyph-warning"
+            : "editor-glyph-info",
+        glyphMarginHoverMessage: { value: `**${iss.rule}**: ${iss.message}` },
+        overviewRuler: {
+          color: iss.severity === "error" ? "#f87171" : iss.severity === "warning" ? "#fbbf24" : "#60a5fa",
+          position: 1, // Full overview ruler
+        },
+      },
+    }));
+
+    if (decorationsRef.current) {
+      decorationsRef.current.clear();
+    }
+    decorationsRef.current = ed.createDecorationsCollection(newDecorations);
+  }, []);
 
   const handleValidate = useCallback(async () => {
     setLoading(true);
@@ -53,12 +99,14 @@ export default function Home() {
       });
       const data = await res.json();
       setResult(data);
+      updateDecorations(data);
     } catch {
       setResult(null);
+      updateDecorations(null);
     } finally {
       setLoading(false);
     }
-  }, [content]);
+  }, [content, updateDecorations]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -158,6 +206,10 @@ export default function Home() {
               theme="vs-dark"
               value={content}
               onChange={(v) => setContent(v || "")}
+              onMount={(ed) => {
+                editorRef.current = ed;
+                ed.updateOptions({ glyphMargin: true });
+              }}
               options={{
                 minimap: { enabled: false },
                 fontSize: 13,
@@ -165,6 +217,7 @@ export default function Home() {
                 scrollBeyondLastLine: false,
                 padding: { top: 12 },
                 wordWrap: "on",
+                glyphMargin: true,
               }}
             />
             <p className="text-xs text-[#7a7a8c] px-4 py-2 border-t border-[#1e1e2e]">
@@ -206,7 +259,15 @@ export default function Home() {
                   {allIssues.map((issue, i) => (
                     <div
                       key={i}
-                      className={`rounded-lg border px-3 py-2 text-sm ${severityColor(issue.severity)}`}
+                      className={`rounded-lg border px-3 py-2 text-sm cursor-pointer hover:brightness-125 transition-all ${severityColor(issue.severity)}`}
+                      onClick={() => {
+                        const ed = editorRef.current;
+                        if (ed) {
+                          ed.revealLineInCenter(issue.line);
+                          ed.setPosition({ lineNumber: issue.line, column: issue.column });
+                          ed.focus();
+                        }
+                      }}
                     >
                       <div className="flex items-start gap-2">
                         <span className="font-mono text-xs mt-0.5">{severityIcon(issue.severity)}</span>
