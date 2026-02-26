@@ -13,7 +13,22 @@ const BLOCK_OPENERS = /^(message|enum|service|oneof|extend)\s+/;
 const RPC_WITH_BODY = /^rpc\s+.*\{$/;
 
 export function format(content: string): string {
-  const lines = content.split("\n");
+  // Pre-process: split lines where closing braces follow semicolons
+  // e.g. "field = 5; }" → "field = 5;" and "}"
+  const rawLines = content.split("\n");
+  const lines: string[] = [];
+  for (const raw of rawLines) {
+    const trimmed = raw.trim();
+    // Split "something; }" or "something;}" into two lines
+    const splitMatch = trimmed.match(/^(.+;\s*)(}\s*)$/);
+    if (splitMatch && !trimmed.startsWith("//")) {
+      lines.push(splitMatch[1].trim());
+      lines.push(splitMatch[2].trim());
+    } else {
+      lines.push(raw);
+    }
+  }
+
   const formatted: { text: string; depth: number; type: string }[] = [];
   let depth = 0;
   let inBlockComment = false;
