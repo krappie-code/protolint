@@ -158,6 +158,48 @@ function validateSyntax(lines: string[]): Issue[] {
       }
     }
 
+    // Validate syntax value
+    const syntaxMatch = code.match(/^syntax\s*=\s*"([^"]*)"\s*;/);
+    if (syntaxMatch) {
+      const val = syntaxMatch[1];
+      if (val !== "proto2" && val !== "proto3") {
+        issues.push(
+          issue(lineNum, 1, "syntax-error", `Invalid syntax value "${val}". Must be "proto2" or "proto3".`, "error")
+        );
+      }
+    }
+
+    // Check for trailing junk after semicolons
+    if (code.includes(";") && !code.endsWith(";") && !code.includes("{")) {
+      const afterSemicolon = code.substring(code.lastIndexOf(";") + 1).trim();
+      if (afterSemicolon && !afterSemicolon.startsWith("//")) {
+        issues.push(
+          issue(lineNum, code.lastIndexOf(";") + 2, "syntax-error", `Unexpected content "${afterSemicolon}" after semicolon.`, "error")
+        );
+      }
+    }
+
+    // Detect unrecognized top-level lines
+    if (currentContext === "" && !expectingBody) {
+      const isKnown =
+        code === "}" || code === "};" ||
+        /^syntax\s/.test(code) ||
+        /^package\s/.test(code) ||
+        /^import\s/.test(code) ||
+        /^option\s/.test(code) ||
+        /^message\s/.test(code) ||
+        /^enum\s/.test(code) ||
+        /^service\s/.test(code) ||
+        /^extend\s/.test(code) ||
+        /^\/[/*]/.test(code) ||
+        code === "{";
+      if (!isKnown) {
+        issues.push(
+          issue(lineNum, 1, "syntax-error", `Unrecognized statement: "${code.substring(0, 40)}${code.length > 40 ? "..." : ""}".`, "error")
+        );
+      }
+    }
+
     // Detect missing semicolons on field/import/package/syntax lines
     if (/^(syntax|package|import|option)\s+/.test(code) && !code.endsWith(";") && !code.includes("{")) {
       issues.push(
