@@ -33,6 +33,13 @@ const UPPER_SNAKE_RE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/;
  * Parse proto syntax and catch structural errors like missing field numbers,
  * unclosed braces, malformed declarations, etc.
  */
+// Built-in protobuf scalar types
+const BUILTIN_TYPES = new Set([
+  "double", "float", "int32", "int64", "uint32", "uint64",
+  "sint32", "sint64", "fixed32", "fixed64", "sfixed32", "sfixed64",
+  "bool", "string", "bytes",
+]);
+
 function validateSyntax(lines: string[]): Issue[] {
   const issues: Issue[] = [];
   let braceStack: { type: string; name: string; line: number }[] = [];
@@ -40,6 +47,15 @@ function validateSyntax(lines: string[]): Issue[] {
   let expectingType = "";
   let expectingName = "";
   let expectingLine = 0;
+  // Track declared message/enum names for custom type validation
+  const declaredTypes = new Set<string>();
+
+  // First pass: collect all declared message and enum names
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^(?:message|enum)\s+(\w+)/);
+    if (match) declaredTypes.add(match[1]);
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
@@ -70,6 +86,21 @@ function validateSyntax(lines: string[]): Issue[] {
       const isFieldDecl = /^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+\w+/.test(code);
 
       if (isFieldDecl && !isNestedDef && !isClosingBrace) {
+        // Check field type is valid
+        const fieldTypeMatch = code.match(/^(?:optional\s+|repeated\s+|required\s+)?(map<[^>]+>|\w+(?:\.\w+)*)\s+\w+/);
+        if (fieldTypeMatch) {
+          const fieldType = fieldTypeMatch[1];
+          if (!fieldType.startsWith("map<") && !fieldType.includes(".")) {
+            // Simple type — must be builtin or a declared message/enum
+            if (!BUILTIN_TYPES.has(fieldType) && !declaredTypes.has(fieldType)) {
+              issues.push(
+                issue(lineNum, 1, "syntax-error", `Unknown field type "${fieldType}". Not a built-in type or declared message/enum.`, "error")
+              );
+            }
+          }
+          // Dotted types like google.protobuf.Timestamp are assumed valid (external imports)
+        }
+
         // Must have = number; (with semicolon)
         if (!/=\s*\d+\s*;/.test(code) && !/=\s*\d+\s*\[/.test(code)) {
           if (/=\s*\d+\s*$/.test(code)) {
