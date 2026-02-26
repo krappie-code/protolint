@@ -103,6 +103,13 @@ export function format(content: string): string {
       formatted = formatted.replace(/\s+/, " ");
     }
 
+    // Normalize spacing in block declarations: message, enum, service, oneof, extend
+    if (BLOCK_OPENERS.test(formatted)) {
+      formatted = formatted.replace(/^(message|enum|service|oneof|extend)\s+/, "$1 ");
+      // Also normalize space before opening brace
+      formatted = formatted.replace(/\s+\{$/, " {");
+    }
+
     result.push(indent(depth) + formatted);
 
     // Increase depth if this line opens a block
