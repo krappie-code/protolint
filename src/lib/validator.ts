@@ -299,7 +299,7 @@ function validateSyntax(lines: string[]): Issue[] {
     // Check for trailing junk after semicolons
     if (code.includes(";") && !code.endsWith(";") && !code.includes("{")) {
       const afterSemicolon = code.substring(code.lastIndexOf(";") + 1).trim();
-      if (afterSemicolon && !afterSemicolon.startsWith("//")) {
+      if (afterSemicolon && !afterSemicolon.startsWith("//") && !/^[}\s]*$/.test(afterSemicolon)) {
         issues.push(
           issue(lineNum, code.lastIndexOf(";") + 2, "syntax-error", `Unexpected content "${afterSemicolon}" after semicolon.`, "error")
         );
