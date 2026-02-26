@@ -49,12 +49,28 @@ function validateSyntax(lines: string[]): Issue[] {
   let expectingLine = 0;
   // Track declared message/enum names for custom type validation
   const declaredTypes = new Set<string>();
+  // Track declarations with line numbers for duplicate detection
+  const declaredTypeLines = new Map<string, number>();
+  // Track field numbers per block for duplicate detection
+  const fieldNumberStacks: Map<string, number>[] = [];
+  // Track field names per block for duplicate detection
+  const fieldNameStacks: Map<string, number>[] = [];
 
   // First pass: collect all declared message and enum names
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const match = trimmed.match(/^(?:message|enum)\s+(\w+)/);
-    if (match) declaredTypes.add(match[1]);
+  for (let idx = 0; idx < lines.length; idx++) {
+    const trimmed = lines[idx].trim();
+    const match = trimmed.match(/^(?:message|enum|service)\s+(\w+)/);
+    if (match) {
+      const name = match[1];
+      if (declaredTypes.has(name)) {
+        issues.push(
+          issue(idx + 1, 1, "duplicate-definition", `"${name}" is already defined on line ${declaredTypeLines.get(name)}.`, "error")
+        );
+      } else {
+        declaredTypes.add(name);
+        declaredTypeLines.set(name, idx + 1);
+      }
+    }
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -104,7 +120,6 @@ function validateSyntax(lines: string[]): Issue[] {
         // Must have = number; (with semicolon)
         if (!/=\s*\d+\s*;/.test(code) && !/=\s*\d+\s*\[/.test(code)) {
           if (/=\s*\d+\s*$/.test(code)) {
-            // Has field number but missing semicolon
             issues.push(
               issue(lineNum, 1, "syntax-error", `Field declaration is missing a trailing semicolon.`, "error")
             );
@@ -112,6 +127,31 @@ function validateSyntax(lines: string[]): Issue[] {
             issues.push(
               issue(lineNum, 1, "syntax-error", `Field declaration is missing a valid field number.`, "error")
             );
+          }
+        }
+
+        // Check for duplicate field numbers and names
+        const fieldFullMatch = code.match(/^(?:optional\s+|repeated\s+|required\s+)?(?:map<[^>]+>|\w+(?:\.\w+)*)\s+(\w+)\s*=\s*(\d+)/);
+        if (fieldFullMatch && fieldNumberStacks.length > 0) {
+          const fieldName = fieldFullMatch[1];
+          const fieldNum = parseInt(fieldFullMatch[2], 10);
+          const numMap = fieldNumberStacks[fieldNumberStacks.length - 1];
+          const nameMap = fieldNameStacks[fieldNameStacks.length - 1];
+
+          if (numMap.has(fieldNum)) {
+            issues.push(
+              issue(lineNum, 1, "duplicate-field-number", `Field number ${fieldNum} is already used on line ${numMap.get(fieldNum)}.`, "error")
+            );
+          } else {
+            numMap.set(fieldNum, lineNum);
+          }
+
+          if (nameMap.has(fieldName)) {
+            issues.push(
+              issue(lineNum, 1, "duplicate-field-name", `Field name "${fieldName}" is already used on line ${nameMap.get(fieldName)}.`, "error")
+            );
+          } else {
+            nameMap.set(fieldName, lineNum);
           }
         }
       }
@@ -134,6 +174,31 @@ function validateSyntax(lines: string[]): Issue[] {
             );
           }
         }
+
+        // Check duplicate enum value numbers and names
+        const enumValMatch = code.match(/^(\w+)\s*=\s*(-?\d+)/);
+        if (enumValMatch && fieldNumberStacks.length > 0) {
+          const valName = enumValMatch[1];
+          const valNum = parseInt(enumValMatch[2], 10);
+          const numMap = fieldNumberStacks[fieldNumberStacks.length - 1];
+          const nameMap = fieldNameStacks[fieldNameStacks.length - 1];
+
+          if (numMap.has(valNum)) {
+            issues.push(
+              issue(lineNum, 1, "duplicate-field-number", `Enum value ${valNum} is already used on line ${numMap.get(valNum)}.`, "error")
+            );
+          } else {
+            numMap.set(valNum, lineNum);
+          }
+
+          if (nameMap.has(valName)) {
+            issues.push(
+              issue(lineNum, 1, "duplicate-field-name", `Enum value name "${valName}" is already used on line ${nameMap.get(valName)}.`, "error")
+            );
+          } else {
+            nameMap.set(valName, lineNum);
+          }
+        }
       }
     }
 
@@ -152,6 +217,10 @@ function validateSyntax(lines: string[]): Issue[] {
       // Check for opening brace
       if (code.includes("{")) {
         braceStack.push({ type, name, line: lineNum });
+        if (type === "message" || type === "enum" || type === "oneof") {
+          fieldNumberStacks.push(new Map());
+          fieldNameStacks.push(new Map());
+        }
       } else {
         // Brace might be on next line, or it's missing
         expectingBody = true;
@@ -162,6 +231,10 @@ function validateSyntax(lines: string[]): Issue[] {
     } else if (expectingBody) {
       if (code.startsWith("{") || code === "{") {
         braceStack.push({ type: expectingType, name: expectingName, line: expectingLine });
+        if (expectingType === "message" || expectingType === "enum" || expectingType === "oneof") {
+          fieldNumberStacks.push(new Map());
+          fieldNameStacks.push(new Map());
+        }
       } else {
         issues.push(
           issue(expectingLine, 1, "syntax-error", `${expectingType} "${expectingName}" is missing opening brace "{"`, "error")
@@ -179,7 +252,11 @@ function validateSyntax(lines: string[]): Issue[] {
     }
     for (let j = 0; j < closeCount; j++) {
       if (braceStack.length > 0) {
-        braceStack.pop();
+        const closed = braceStack.pop()!;
+        if (closed.type === "message" || closed.type === "enum" || closed.type === "oneof") {
+          fieldNumberStacks.pop();
+          fieldNameStacks.pop();
+        }
       } else {
         issues.push(
           issue(lineNum, 1, "syntax-error", `Unexpected closing brace "}".`, "error")
