@@ -191,14 +191,34 @@ export default function Home() {
             </span>
             <span className="text-sm text-[#7a7a8c]">.com</span>
           </div>
-          <a
-            href="https://github.com/krappie-code/protolint"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#7a7a8c] hover:text-white transition-colors text-sm"
-          >
-            GitHub →
-          </a>
+          <div className="flex items-center gap-4 text-sm">
+            <a
+              href="https://proto2any.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#7a7a8c] hover:text-purple-400 transition-colors"
+              onClick={() => trackEvent('proto2any_header_click', {
+                event_category: 'engagement',
+                link_destination: 'proto2any_header',
+                value: 1
+              })}
+            >
+              proto2any.com →
+            </a>
+            <a
+              href="https://github.com/krappie-code/protolint"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#7a7a8c] hover:text-white transition-colors"
+              onClick={() => trackEvent('external_link', {
+                event_category: 'engagement',
+                link_destination: 'github_header',
+                value: 1
+              })}
+            >
+              GitHub →
+            </a>
+          </div>
         </div>
       </header>
 
@@ -210,9 +230,25 @@ export default function Home() {
             Protocol Buffers
           </span>
         </h1>
-        <p className="text-[#7a7a8c] text-lg max-w-2xl mx-auto mb-12">
+        <p className="text-[#7a7a8c] text-lg max-w-2xl mx-auto mb-8">
           Check your .proto files against the Google Protocol Buffer style guide.
           Catch naming issues, structural problems, and style violations instantly.
+        </p>
+        <p className="text-[#7a7a8c] text-sm max-w-xl mx-auto mb-12">
+          ✨ Once validated, convert your .proto files to code with{" "}
+          <a
+            href="https://proto2any.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 transition-colors underline"
+            onClick={() => trackEvent('proto2any_hero_click', {
+              event_category: 'engagement',
+              link_destination: 'proto2any_hero',
+              value: 1
+            })}
+          >
+            proto2any.com
+          </a>
         </p>
       </section>
 
@@ -343,10 +379,35 @@ export default function Home() {
                 </div>
               )}
               {result && allIssues.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full gap-2">
+                <div className="flex flex-col items-center justify-center h-full gap-4">
                   <span className="text-4xl">🎉</span>
                   <span className="text-green-400 font-medium">No issues found!</span>
                   <span className="text-[#7a7a8c] text-sm">Your .proto file follows the Google style guide.</span>
+                  
+                  {/* Proto2Any CTA */}
+                  <div className="mt-4 p-4 rounded-lg border border-[#2a2a3e] bg-[#16161e] text-center">
+                    <div className="text-sm text-[#7a7a8c] mb-2">
+                      ✨ Ready to generate code from your validated .proto file?
+                    </div>
+                    <a
+                      href="https://proto2any.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-medium rounded-lg transition-all duration-200 transform hover:scale-105"
+                      onClick={() => trackEvent('proto2any_conversion', {
+                        event_category: 'conversion',
+                        source: 'protolint_success',
+                        file_size_kb: Math.round(content.length / 1024),
+                        value: 1
+                      })}
+                    >
+                      <span>Convert to Code</span>
+                      <span className="text-xs">→ proto2any.com</span>
+                    </a>
+                    <div className="text-xs text-[#7a7a8c] mt-2">
+                      Generate TypeScript, Python, Go, Java & more
+                    </div>
+                  </div>
                 </div>
               )}
               {result && allIssues.length > 0 && (
@@ -459,14 +520,34 @@ curl -X POST https://protolint.com/api/validate \\
       <footer className="border-t border-[#1e1e2e] py-8">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between text-sm text-[#7a7a8c]">
           <span>© {new Date().getFullYear()} protolint</span>
-          <a
-            href="https://github.com/krappie-code/protolint"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-white transition-colors"
-          >
-            GitHub
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://proto2any.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-purple-400 transition-colors"
+              onClick={() => trackEvent('proto2any_footer_click', {
+                event_category: 'engagement',
+                link_destination: 'proto2any_footer',
+                value: 1
+              })}
+            >
+              proto2any.com
+            </a>
+            <a
+              href="https://github.com/krappie-code/protolint"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors"
+              onClick={() => trackEvent('external_link', {
+                event_category: 'engagement',
+                link_destination: 'github_footer',
+                value: 1
+              })}
+            >
+              GitHub
+            </a>
+          </div>
         </div>
       </footer>
     </div>
