@@ -49,7 +49,7 @@ declare global {
 // Analytics tracking functions
 const trackEvent = (eventName: string, parameters: Record<string, any>) => {
   if (typeof window !== 'undefined') {
-    if (window.gtag) {
+    if (typeof window.gtag === 'function') {
       window.gtag('event', eventName, parameters);
       console.log('🎯 Analytics Event:', eventName, parameters);
     } else {

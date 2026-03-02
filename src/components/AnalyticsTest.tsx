@@ -16,7 +16,7 @@ export default function AnalyticsTest() {
   useEffect(() => {
     // Check if gtag is loaded
     const checkGtag = () => {
-      if (typeof window !== 'undefined' && window.gtag) {
+      if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
         setGtagLoaded(true);
         console.log('✅ Google Analytics gtag loaded successfully');
         console.log('📊 DataLayer:', window.dataLayer?.slice(-5)); // Show last 5 events
@@ -34,7 +34,7 @@ export default function AnalyticsTest() {
   }, []);
 
   const fireTestEvent = () => {
-    if (window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       const eventName = `test_event_${Date.now()}`;
       window.gtag('event', eventName, {
         event_category: 'debug',
