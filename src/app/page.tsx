@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { EXAMPLE_PROTO } from "@/lib/examples";
 import type { ValidationResult, Issue } from "@/lib/validator";
 import type { editor } from "monaco-editor";
+import AnalyticsTest from "@/components/AnalyticsTest";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -47,8 +48,13 @@ declare global {
 
 // Analytics tracking functions
 const trackEvent = (eventName: string, parameters: Record<string, any>) => {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', eventName, parameters);
+  if (typeof window !== 'undefined') {
+    if (window.gtag) {
+      window.gtag('event', eventName, parameters);
+      console.log('🎯 Analytics Event:', eventName, parameters);
+    } else {
+      console.warn('⚠️ Analytics not loaded - gtag unavailable for event:', eventName);
+    }
   }
 };
 
@@ -564,6 +570,9 @@ curl -X POST https://protolint.com/api/validate \\
           </div>
         </div>
       </footer>
+      
+      {/* Analytics Debug Component */}
+      <AnalyticsTest />
     </div>
   );
 }
