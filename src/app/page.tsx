@@ -38,6 +38,20 @@ function severityIcon(s: string) {
   return "ℹ";
 }
 
+// Declare gtag for TypeScript
+declare global {
+  interface Window {
+    gtag: (...args: any[]) => void;
+  }
+}
+
+// Analytics tracking functions
+const trackEvent = (eventName: string, parameters: Record<string, any>) => {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', eventName, parameters);
+  }
+};
+
 export default function Home() {
   const [content, setContent] = useState(EXAMPLE_PROTO);
   const [result, setResult] = useState<ValidationResult | null>(null);
